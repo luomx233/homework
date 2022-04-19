@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LMX</title>
+    <script src="https://unpkg.com/vue@next"></script>
+    <style>
+        table {
+            border-collapse: collapse;
+            border: 1px solid #222;
+            text-align: center;
+            width: 80%;
+            margin: 0 auto;
+        }
+
+        tr {
+            border: 1px solid #222;
+        }
+
+        td {
+            border: 1px solid #222;
+        }
+
+        #handle {
+            text-align: center;
+        }
+
+        #preparedQue {
+            background-color: rgb(99, 181, 248);
+        }
+
+        #processsingQue {
+            background-color: rgb(151, 250, 151);
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app"></div>
+
+    <template id="myapp">
+        <div>
+            <table id="zuoyeQue">
+                <thead>
+                    <tr>
+                        <th style="text-align: center;" colspan="3">原始作业(属性可更改,(数据自动同步))</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th>作业名称</th>
+                        <th>作业进入时间</th>
+                        <th>作业运行时间</th>
+                    </tr>
+                    <tr v-for="(item, index) in zuoye" :key="index">
+                        <td><input type="text" v-model="item.name"></td>
+                        <td><input type="text" v-model.number="item.enterTime"></td>
+                        <td><input type="text" v-model.number="item.processTime"></td>
+                    </tr>
+                </tbody>
+                <tr>
+                    <td colspan="3"><button @click="addZuoye">创建一条新的作业</button></td>
+                </tr>
+            </table>
+            <br>
+            <div id="handle">
+                <p>记录的运行时间:{{totalProcessTime}}</p>
+                <button onclick="javascript:location.reload()">
+                    运行完毕后请重置
+                </button>
+                <button @click="sortZuoye">
+                    单步运行
+                </button>
+                <button @click="sortZuoyeAll">
+                    直接运行至结果
+                </button>
+                <br>
+                <br>
+            </div>
+            <br>
+            <div id="guocheng" v-if="showGuocheng">
+                <table id="sortedZuoyeQue">
+                    <thead>
+                        <tr>
+                            <th style="text-align: center;" colspan="3">待进行处理的作业(通过进入时间排序)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th>作业名称</th>
+                            <th>作业进入时间</th>
+                            <th>作业运行时间</th>
+                        </tr>
+                        <tr v-for="(item, index) in sortedZuoye" :key="index">
+                            <td>{{item.name}}</td>
+                            <td>{{item.enterTime}}</td>
+                            <td>{{item.processTime}}</td>
+                        </tr>
+                        <tr v-if="sortedZuoye.length==0">
+                            <th>
+                                <h5>此时无进程在队列!</h5>
+                            </th>
+                        </tr>
+                    </tbody>
+                </table>
+                <br><br>
+
+                <table id="preparedQue">
+                    <thead>
+                        <tr>
+                            <th style="text-align: center;" colspan="3">已到达的作业(通过处理时间排序)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th>作业名称</th>
+                            <th>作业进入时间</th>
+                            <th>作业运行时间</th>
+                        </tr>
+                        <tr v-for="(item, index) in preparedZuoye" :key="index">
+                            <td>{{item.name}}</td>
+                            <td>{{item.enterTime}}</td>
+                            <td>{{item.processTime}}</td>
+                        </tr>
+                        <tr v-if="preparedZuoye.length==0">
+                            <th>
+                                <h5>目前队列为空!</h5>
+                            </th>
+                        </tr>
+                    </tbody>
+                </table>
+                <br>
+                <table id="processsingQue">
+                    <thead>
+                        <tr>
+                            <th style="text-align: center;" colspan="4">正在进行的作业</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <th>作业名称</th>
+                            <th>作业进入时间</th>
+                            <th>作业运行时间</th>
+                            <th>作业开始时间</th>
+                        </tr>
+                        <tr v-if="processingZuoye!=null">
+                            <td>{{processingZuoye.name}}</td>
+                            <td>{{processingZuoye.enterTime}}</td>
+                            <td>{{processingZuoye.processTime}}</td>
+                            <td>{{processingZuoye.startTime}}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <br>
+            <table id="finishedQue">
+                <thead>
+                    <tr>
+                        <th style="text-align: center;" colspan="7">已完成的作业</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th>作业名称</th>
+                        <th>作业进入时间</th>
+                        <th>作业运行时间</th>
+                        <th>作业开始时间</th>
+                        <th>作业完成时间</th>
+                        <th>作业周转时间</th>
+                        <th>作业带权周转时间</th>
+                    </tr>
+                    <tr v-for="(item, index) in finishedZuoye" :key="index">
+                        <td>{{item.name}}</td>
+                        <td>{{item.enterTime}}</td>
+                        <td>{{item.processTime}}</td>
+                        <td>{{item.startTime}}</td>
+                        <td>{{item.finishedTime}}</td>
+                        <td>{{item.turnaroundTime}}</td>
+                        <td>{{item.weightedTurnaroundTime}}</td>
+                    </tr>
+                    <tr v-if="finishedZuoye.length==0">
+                        <th>
+                            <h5>目前队列为空!</h5>
+                        </th>
+
+                    </tr>
+
+                    <!-- <template v-if="finishedZuoye.lenth<1">
+                        
+                    </template> -->
+                </tbody>
+            </table>
+
+        </div>
+    </template>
+
+    <script src="./vue.global.js"></script>
+    <script>
+        const App = {
+            template: '#myapp',
+            data() {
+                return {
+                    zuoye: [
+                        {
+                            name: 'a',
+                            enterTime: 0,
+                            processTime: 4,
+                        },
+                        {
+                            name: 'b',
+                            enterTime: 3,
+                            processTime: 2,
+                        },
+                        {
+                            name: 'c',
+                            enterTime: 6,
+                            processTime: 7,
+                        },
+                        {
+                            name: 'd',
+                            enterTime: 8,
+                            processTime: 4,
+                        },
+                        {
+                            name: 'e',
+                            enterTime: 5,
+                            processTime: 1,
+                        },
+                        {
+                            name: 'f',
+                            enterTime: 1,
+                            processTime: 6,
+                        },
+                    ],
+                    sortedZuoye: [
+                    ],
+                    finishedZuoye: [
+                    ],
+                    preparedZuoye: [
+                    ],
+                    processingZuoye: null,
+                    totalProcessTime: 0,
+                    processingTimes: 0,
+                    showGuocheng: false
+                }
+            },
+            methods: {
+                //添加一条作业记录
+                addZuoye() {
+                    this.zuoye.push({
+                        name: 'default',
+                        enterTime: 0,
+                        processTime: 0,
+                    })
+                },
+                sortZuoyeAll() {
+                    //循环单步执行
+                    this.sortZuoye()
+                    while (this.sortedZuoye.length != 0 || this.preparedZuoye.length != 0 || this.processingZuoye != null) {
+                        this.sortZuoye()
+                    }
+                    this.showGuocheng = false
+                },
+                sortZuoye() {
+                    this.showGuocheng = true
+                    //如果运行次数为0
+                    if (this.processingTimes == 0) {
+
+                        //将zuoye深度拷贝一份,并赋值给sortedZuoye
+                        this.sortedZuoye = JSON.parse(JSON.stringify(this.zuoye));
+                        //按照zuoye的进入时间排序
+                        this.sortedZuoye.sort((a, b) => {
+                            return a.enterTime - b.enterTime
+                        })
+                        //加入第一条作业到准备队列
+                        this.preparedZuoye.push(this.sortedZuoye.shift())
+                    } else {
+                        if (this.processingZuoye != null) {
+                            this.processing()
+                        } else {
+                            this.showProcessingZuoye()
+                        }
+                    }
+                    this.processingTimes++
+                },
+                showProcessingZuoye() {
+                    console.log("进入showProcessingZuoye");
+                    //添加数据的进行时刻
+                    this.preparedZuoye[0].startTime = this.totalProcessTime
+                    //将准备中的数据第一条添加到正在进行作业中
+                    this.processingZuoye = this.preparedZuoye.shift()
+                },
+                //主进程
+                processing() {
+                    console.log("进入processing");
+                    //将完成数据的最后一条的运行时间加上
+                    this.totalProcessTime += this.processingZuoye.processTime
+                    //添加数据的完成时刻
+                    this.processingZuoye.finishedTime = this.totalProcessTime
+                    //周转时间=作业完成时刻-作业到达时刻；
+                    this.processingZuoye.turnaroundTime = this.processingZuoye.finishedTime - this.processingZuoye.enterTime
+                    //带权周转时间=周转时间/运行时间；
+                    this.processingZuoye.weightedTurnaroundTime = (this.processingZuoye.turnaroundTime / this.processingZuoye.processTime).toFixed(2)
+                    //将数据添加到已完成数据列表中
+                    this.finishedZuoye.push(this.processingZuoye)
+
+                    this.processingZuoye = null
+                    //创建将小于准备时间的队列
+                    let filteredArr = this.sortedZuoye.filter(item => {
+                        return item.enterTime <= this.totalProcessTime
+                    })
+                    //将小于准备时间的队列加入到准备中的队列
+                    filteredArr.map(ele => {
+                        this.preparedZuoye.push(ele)
+                    })
+                    //将filteredArr的队列从sortedZuoye中删除
+                    this.sortedZuoye = this.sortedZuoye.filter(item => {
+                        return item.enterTime > this.totalProcessTime
+                    })
+                    //将preparedZuoye按照processTime排序
+                    this.preparedZuoye.sort((a, b) => {
+                        return a.processTime - b.processTime
+                    })
+                }
+
+            },
+        }
+        Vue.createApp(App).mount('#app')
+    </script>
+</body>
+
+</html>
